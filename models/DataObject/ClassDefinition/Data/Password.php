@@ -23,6 +23,7 @@ use Pimcore\Model\DataObject;
 use Pimcore\Model\DataObject\ClassDefinition\Data;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Normalizer\NormalizerInterface;
+use Pimcore\Security\Hasher\CheckPasswordBsiTrait;
 use Symfony\Component\PasswordHasher\Hasher\CheckPasswordLengthTrait;
 use function array_key_exists;
 use function in_array;
@@ -35,6 +36,7 @@ class Password extends Data implements ResourcePersistenceAwareInterface, QueryR
     use DataObject\Traits\SimpleComparisonTrait;
     use DataObject\Traits\DataWidthTrait;
     use DataObject\Traits\SimpleNormalizerTrait;
+    use CheckPasswordBsiTrait;
 
     const HASH_FUNCTION_PASSWORD_HASH = 'password_hash';
 
@@ -400,8 +402,37 @@ class Password extends Data implements ResourcePersistenceAwareInterface, QueryR
      */
     public function checkValidity(mixed $data, bool $omitMandatoryCheck = false, array $params = []): void
     {
-        if (is_string($data) && $this->isPasswordTooLong($data)) {
+        $settings = Config::getSystemConfiguration();
+        $passwordStandard = $settings['password.standard'];
+
+        if (
+            is_string($data)
+            && $passwordStandard == 'pimcore' &&
+            $this->isPasswordTooLong($data)
+        ) {
             throw new Model\Element\ValidationException('Value in field [ ' . $this->getName() . ' ] is too long');
+        }
+
+        if (
+            is_string($data)
+            && $passwordStandard == 'bsi_standard_less'
+            && !$this->isLongLessComplexPassword($data)
+        ) {
+            throw new Model\Element\ValidationException(
+                'Value in field [ ' . $this->getName() . ' ] must be at least 8 to 12 characters long
+                and must consist of 4 different character types'
+            );
+        }
+
+        if (
+            is_string($data)
+            && $passwordStandard == 'bsi_standard_complex'
+            && !$this->isComplexPassword($data)
+        ) {
+            throw new Model\Element\ValidationException(
+                'Value in field [ ' . $this->getName() . ' ]
+                must be at least 25 characters long and consist of 2 character types'
+            );
         }
 
         if (!$omitMandatoryCheck && ($this->getMinimumLength() && is_string($data) && strlen($data) < $this->getMinimumLength())) {

@@ -16,12 +16,14 @@ declare(strict_types=1);
 
 namespace Pimcore\Security\Hasher;
 
+use Pimcore\Config;
 use Pimcore\Model\DataObject\ClassDefinition\Data\Password;
 use Pimcore\Model\DataObject\Concrete;
 use Symfony\Component\PasswordHasher\Hasher\CheckPasswordLengthTrait;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Core\Exception\RuntimeException;
 use function get_class;
+use function sprintf;
 
 /**
  * @internal
@@ -31,6 +33,7 @@ use function get_class;
 class PasswordFieldHasher extends AbstractUserAwarePasswordHasher
 {
     use CheckPasswordLengthTrait;
+    use CheckPasswordBsiTrait;
 
     protected string $fieldName;
 
@@ -57,8 +60,31 @@ class PasswordFieldHasher extends AbstractUserAwarePasswordHasher
 
     public function hashPassword(string $raw, ?string $salt): string
     {
-        if ($this->isPasswordTooLong($raw)) {
-            throw new BadCredentialsException(sprintf('Password exceeds a maximum of %d characters', static::MAX_PASSWORD_LENGTH));
+        $settings = Config::getSystemConfiguration();
+        $passwordStandard = $settings['password.standard'];
+
+        if (
+            $passwordStandard == 'pimcore'
+            && $this->isPasswordTooLong($raw)
+        ) {
+            throw new BadCredentialsException(
+                sprintf('Password exceeds a maximum of %d characters', static::MAX_PASSWORD_LENGTH)
+            );
+        } elseif (
+            $passwordStandard == 'bsi_standard_less'
+            && !$this->isLongLessComplexPassword($raw)
+        ) {
+            throw new BadCredentialsException(
+                'Passwords must be at least 8 to 12 characters long
+                and must consist of 4 different character types'
+            );
+        } elseif (
+            $passwordStandard == 'bsi_standard_complex'
+            && !$this->isComplexPassword($raw)
+        ) {
+            throw new BadCredentialsException(
+                'Passwords must be at least 25 characters long and consist of 2 character types'
+            );
         }
 
         return $this->getFieldDefinition()->calculateHash($raw);
@@ -66,7 +92,17 @@ class PasswordFieldHasher extends AbstractUserAwarePasswordHasher
 
     public function isPasswordValid(string $encoded, string $raw): bool
     {
-        if ($this->isPasswordTooLong($raw)) {
+        $settings = Config::getSystemConfiguration();
+        $passwordStandard = $settings['password.standard'];
+
+        if (
+            ($passwordStandard == 'pimcore' &&
+            $this->isPasswordTooLong($raw)) ||
+            ($passwordStandard == 'bsi_standard_less' &&
+            !$this->isLongLessComplexPassword($raw)) ||
+            ($passwordStandard == 'bsi_standard_complex' &&
+            !$this->isComplexPassword($raw))
+        ) {
             return false;
         }
 

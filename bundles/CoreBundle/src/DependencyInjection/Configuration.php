@@ -114,6 +114,7 @@ final class Configuration implements ConfigurationInterface
             ->end();
 
         $this->addGeneralNode($rootNode);
+        $this->addPasswordNode($rootNode);
         $this->addMaintenanceNode($rootNode);
         $this->addObjectsNode($rootNode);
         $this->addAssetNode($rootNode);
@@ -276,6 +277,19 @@ final class Configuration implements ConfigurationInterface
                         })
                     ->end()
                     ->defaultFalse()
+                ->end()
+            ->end();
+    }
+
+    private function addPasswordNode(ArrayNodeDefinition $rootNode): void
+    {
+        $rootNode
+            ->children()
+            ->arrayNode('password')
+            ->addDefaultsIfNotSet()
+            ->children()
+                ->scalarNode('standard')
+                ->defaultValue('pimcore')
                 ->end()
             ->end();
     }
