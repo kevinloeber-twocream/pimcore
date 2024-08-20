@@ -22,10 +22,8 @@ use Pimcore\Model\DataObject\Concrete;
 use Symfony\Component\PasswordHasher\Hasher\CheckPasswordLengthTrait;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Core\Exception\RuntimeException;
-use function count;
 use function get_class;
 use function sprintf;
-use function strlen;
 
 /**
  * @internal
@@ -35,6 +33,7 @@ use function strlen;
 class PasswordFieldHasher extends AbstractUserAwarePasswordHasher
 {
     use CheckPasswordLengthTrait;
+    use CheckPasswordBsiTrait;
 
     protected string $fieldName;
 
@@ -134,35 +133,5 @@ class PasswordFieldHasher extends AbstractUserAwarePasswordHasher
     public function verify(string $hashedPassword, string $plainPassword, ?string $salt = null): bool
     {
         return $this->getFieldDefinition()->verifyPassword($plainPassword, $this->getUser(), $this->updateHash);
-    }
-
-    private function isComplexPassword(string $password): bool
-    {
-        if (strlen($password) < 8 || strlen($password) > 12) {
-            return false;
-        }
-
-        $uppercase = preg_match('/[A-Z]/', $password);
-        $lowercase = preg_match('/[a-z]/', $password);
-        $numbers = preg_match('/d/', $password);
-        $specialCharacters = preg_match('/[^\w]/', $password);
-
-        return $uppercase && $lowercase && $numbers && $specialCharacters;
-    }
-
-    private function isLongLessComplexPassword(string $password): bool
-    {
-        if (strlen($password) < 25) {
-            return false;
-        }
-
-        $uppercase = preg_match('/[A-Z]/', $password);
-        $lowercase = preg_match('/[a-z]/', $password);
-        $numbers = preg_match('/d/', $password);
-        $specialCharacters = preg_match('/[^\w]/', $password);
-
-        $typesCount = count(array_filter([$uppercase, $lowercase, $numbers, $specialCharacters]));
-
-        return $typesCount >= 2;
     }
 }
