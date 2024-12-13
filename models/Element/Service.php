@@ -567,7 +567,7 @@ class Service extends Model\AbstractModel
     {
         //check in case of recursion
         $found = false;
-        foreach ($target->getChildren() as $child) {
+        foreach ($target->getChildren()->load() as $child) {
             if ($child->getId() == $new->getId()) {
                 $found = true;
 
@@ -1128,9 +1128,13 @@ class Service extends Model\AbstractModel
             DataObject\Service::loadAllObjectFields($element);
         }
 
+        /** @var ElementInterface $theCopy */
         $theCopy = $deepCopy->copy($element);
         $theCopy->setId(null);
         $theCopy->setParent(null);
+        if ($theCopy instanceof AbstractElement) {
+            $theCopy->markFieldDirty('properties');
+        }
 
         return $theCopy;
     }
